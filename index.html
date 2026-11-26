@@ -8,8 +8,8 @@
 <meta name="theme-color" content="#142238">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Super Splash Bros. &amp; Sisters">
-<meta name="private-arcade-build" content="91feff1eed642a0a14c6">
-<meta name="private-arcade-build-time" content="1795728656878">
+<meta name="private-arcade-build" content="cabc4a4cb85a8e48c1e4">
+<meta name="private-arcade-build-time" content="1795729238723">
 <link rel="canonical" href="./">
 <link rel="manifest" href="./app.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.png">
@@ -84,7 +84,7 @@ progress::-moz-progress-bar{background:#1b7675;border-radius:12px}
 .arcade-transfer-meter{display:block;width:100%;margin:0 0 1rem}
 .arcade-transfer-actions{display:flex;gap:10px}
 </style>
-<script defer src="./launcher-91feff1eed642a0a14c6.js"></script>
+<script defer src="./launcher-cabc4a4cb85a8e48c1e4.js"></script>
 </head>
 <body>
 <main data-phase="invitation" aria-labelledby="brand-title">
@@ -123,9 +123,9 @@ progress::-moz-progress-bar{background:#1b7675;border-radius:12px}
       <div class="meter-row"><label for="progress">Game download</label><span id="transfer-detail" class="meter-value" aria-hidden="true"></span></div>
       <progress id="progress" value="0" max="1"></progress>
     </div>
-    <form id="unlock" hidden>
+    <form id="unlock" novalidate hidden>
       <label for="invite">Private invitation link</label>
-      <input id="invite" type="password" placeholder="Paste the family link" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" required>
+      <input id="invite" type="password" placeholder="Paste the family link" aria-describedby="hint" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" required>
       <button type="submit">Open invitation</button>
     </form>
     <button id="retry" type="button" hidden>Retry download</button>
