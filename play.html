@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#142238">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Super Splash Bros. &amp; Sisters">
-<meta name="private-arcade-build" content="856a8b5ba4a7df4c2650">
+<meta name="private-arcade-build" content="712b68bdd437e09abd38">
 <link rel="canonical" href="./">
 <link rel="manifest" href="./app.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.png">
@@ -75,8 +75,14 @@ progress::-moz-progress-bar{background:#1b7675;border-radius:12px}
   #status{font-size:clamp(26px,4vw,38px)}
 }
 @media(prefers-reduced-motion:no-preference){button{transition:background-color .14s ease-out}}
+.arcade-transfer-dialog{width:min(25rem,92vw);padding:20px;border:2px solid #ad945c;border-radius:16px;background:#fff5dd;color:#183144;font:600 1rem system-ui}
+.arcade-transfer-dialog::backdrop{background:#102238bd}
+.arcade-transfer-title{font-size:1.4rem;margin:0 0 .6rem}
+.arcade-transfer-message{margin:.6rem 0 1rem}
+.arcade-transfer-meter{display:block;width:100%;margin:0 0 1rem}
+.arcade-transfer-actions{display:flex;gap:10px}
 </style>
-<script defer src="./launcher-856a8b5ba4a7df4c2650.js"></script>
+<script defer src="./launcher-712b68bdd437e09abd38.js"></script>
 </head>
 <body>
 <main data-phase="invitation" aria-labelledby="brand-title">
@@ -122,6 +128,7 @@ progress::-moz-progress-bar{background:#1b7675;border-radius:12px}
     </form>
     <button id="retry" type="button" hidden>Retry download</button>
     <button id="play" type="button" hidden>Play</button>
+    <button id="save-offline" type="button" hidden>Save full game for offline play</button>
     <noscript>Enable JavaScript in Safari to open your invitation.</noscript>
   </section>
 </main>

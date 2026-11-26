@@ -1,10 +1,11 @@
 'use strict';
-const release = {"id":"856a8b5ba4a7df4c2650","shell":"shell-856a8b5ba4a7df4c2650.html","payload":"cartridge-91a9783cba6218c2c6b2e47ea6614640364c9db62b724f854e6c234b11ce0a36.bin","bytes":49878132,"digest":"91a9783cba6218c2c6b2e47ea6614640364c9db62b724f854e6c234b11ce0a36","codec":"gzip","assets":[{"file":"shell-856a8b5ba4a7df4c2650.html","digest":"961b072a5b8442b0974c2ae88066f4b385dbf666b850ada0e7ebe52b7f98336a","type":"text/html; charset=utf-8"},{"file":"launcher-856a8b5ba4a7df4c2650.js","digest":"a2ea3d270d66e3d4e0d6fbceb14c2bb5d088325f6f9ecc0b1123a9c96714fcd0","type":"text/javascript; charset=utf-8"},{"file":"app.webmanifest","digest":"13c25d4ecbd02a2c7e842b66fe5621ba6d7c33c8ca1189e3859fc2194e84660c","type":"application/manifest+json"},{"file":"icon-192.png","digest":"f0b7796b296e1a67b6e3771944ed6ef395c3ef1199042aa25d6f5f0bd0d72424","type":"image/png"},{"file":"icon-512.png","digest":"45a93567bf56a70b9286f0ad3937dc2185bdc01fa1974ef822d256edbefd973d","type":"image/png"}]};
+const release = {"id":"712b68bdd437e09abd38","shell":"shell-712b68bdd437e09abd38.html","payload":"cartridge-7a9a4e78dd4372e8a4135e5dda5bc4149e3c8d77525134bc37b423a7b171ca91.bin","bytes":15216146,"digest":"7a9a4e78dd4372e8a4135e5dda5bc4149e3c8d77525134bc37b423a7b171ca91","codec":"gzip","parts":[{"payload":"cartridge-314dcbbfc36e07dfc16a24af1853b641387669e8833462444909281280d39c4a.bin","digest":"314dcbbfc36e07dfc16a24af1853b641387669e8833462444909281280d39c4a","bytes":35286416},{"payload":"cartridge-44504b1370aa845f59bcd1d173c2a65b7e6d44c5bb6df84da56d7219b40407bf.bin","digest":"44504b1370aa845f59bcd1d173c2a65b7e6d44c5bb6df84da56d7219b40407bf","bytes":604047}],"assets":[{"file":"shell-712b68bdd437e09abd38.html","digest":"a34e961214b94b99e9fc6a697fc4a723ed4083f5a07b4474f83679062e86b6f6","type":"text/html; charset=utf-8"},{"file":"launcher-712b68bdd437e09abd38.js","digest":"2446ad80ebd7f8dc76fd6aa28b3c7431575ba28532ddfc7368b6a06ac6193cd5","type":"text/javascript; charset=utf-8"},{"file":"app.webmanifest","digest":"13c25d4ecbd02a2c7e842b66fe5621ba6d7c33c8ca1189e3859fc2194e84660c","type":"application/manifest+json"},{"file":"icon-192.png","digest":"f0b7796b296e1a67b6e3771944ed6ef395c3ef1199042aa25d6f5f0bd0d72424","type":"image/png"},{"file":"icon-512.png","digest":"45a93567bf56a70b9286f0ad3937dc2185bdc01fa1974ef822d256edbefd973d","type":"image/png"}]};
 const base = new URL('./', self.location.href);
 const prefix = 'private-arcade:' + base.pathname + ':release-';
 const cacheName = prefix + release.id;
 const shellUrl = new URL(release.shell, base).href;
 const payloadUrl = new URL(release.payload, base).href;
+const partUrls=[payloadUrl,...release.parts.map(part=>new URL(part.payload,base).href)];
 const staticUrls = release.assets.map(asset => new URL(asset.file, base).href);
 
 async function verifyBytes(bytes, expected) {
@@ -41,6 +42,31 @@ self.addEventListener('install', event => {
       if (!(await verifyBytes(bytes, release.digest))) throw new Error('Cartridge verification failed');
       await cache.put(payloadUrl, new Response(bytes, {headers: {'Content-Type': 'application/octet-stream'}}));
     }
+    // Keep a prior complete offline installation usable across an update.
+    // Legacy releases held all modes in one verified cartridge. A split
+    // release carries a marker only after its launcher authenticated every part.
+    for(const previous of (await caches.keys()).filter(name=>name.startsWith(prefix)&&name!==cacheName).reverse()){
+      const old=await caches.open(previous);
+      const paths=(await old.keys()).map(request=>new URL(request.url).pathname.slice(base.pathname.length));
+      const previousId=previous.slice(prefix.length);
+      if(!paths.includes('shell-'+previousId+'.html'))continue;
+      let keepFull=paths.includes('full-'+previousId)||paths.includes('prefetched-'+previousId);
+      if(!keepFull){
+        const client=await old.match(new URL('launcher-'+previousId+'.js',base).href);
+        if(client&&paths.some(path=>path.startsWith('cartridge-')))keepFull=!(await client.text()).includes('__arcadePart');
+      }
+      if(keepFull)for(const part of release.parts){
+        const url=new URL(part.payload,base).href;
+        if(await cache.match(url))continue;
+        const response=await fetch(url,{cache:'reload',credentials:'omit',redirect:'error'});
+        if(!response.ok)throw Error('Update transfer failed');
+        const bytes=await response.arrayBuffer();
+        if(bytes.byteLength!==part.bytes||!(await verifyBytes(bytes,part.digest)))throw Error('Update verification failed');
+        await cache.put(url,new Response(bytes,{headers:{'Content-Type':'application/octet-stream'}}));
+      }
+      if(keepFull)await cache.put(new URL('prefetched-'+release.id,base).href,new Response('1'));
+      break;
+    }
     const assets = await Promise.all(release.assets.map(getStaticAsset));
     await Promise.all(assets.map(([url, response]) => cache.put(url, response)));
     await self.skipWaiting();
@@ -56,6 +82,10 @@ self.addEventListener('activate', event => {
   })());
 });
 
+self.addEventListener('message',event=>{
+  if(event.data==='arcade-release')event.ports[0]?.postMessage(release.id);
+});
+
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET') return;
@@ -63,7 +93,7 @@ self.addEventListener('fetch', event => {
   if (url.origin !== base.origin) return;
   const latest = request.mode === 'navigate' && url.pathname === base.pathname + 'play.html';
   const navigation = latest || request.mode === 'navigate' && (url.pathname === base.pathname || url.pathname === base.pathname + 'index.html');
-  if (!navigation && !staticUrls.includes(url.href) && url.href !== payloadUrl) return;
+  if (!navigation && !staticUrls.includes(url.href) && !partUrls.includes(url.href)) return;
   event.respondWith((async () => {
     const cache = await caches.open(cacheName);
     // Explicit invitation opens check the current release; an installed icon starts instantly offline.
@@ -76,7 +106,7 @@ self.addEventListener('fetch', event => {
       } catch {} finally { clearTimeout(timer); }
     }
     // The client uses no-store only after independently rejecting a local copy.
-    if (request.cache === 'no-store' && url.href === payloadUrl) return fetch(request);
+    if (request.cache === 'no-store' && partUrls.includes(url.href)) return fetch(request);
     return (await cache.match(navigation ? shellUrl : request)) || fetch(request);
   })());
 });
