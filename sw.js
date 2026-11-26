@@ -1,5 +1,5 @@
 'use strict';
-const release = {"id":"cabc4a4cb85a8e48c1e4","builtAt":1795729238723,"shell":"shell-cabc4a4cb85a8e48c1e4.html","payload":"cartridge-614546b6c3225781ef00173d7b1e9f487f40b05d5a2a05690063d8ea8c0de83d.bin","bytes":15475259,"digest":"614546b6c3225781ef00173d7b1e9f487f40b05d5a2a05690063d8ea8c0de83d","codec":"gzip","parts":[{"payload":"cartridge-2109843d6a91da696c34bad47bf560e0d1262516a31a479b58f7cdb21c3f8909.bin","digest":"2109843d6a91da696c34bad47bf560e0d1262516a31a479b58f7cdb21c3f8909","bytes":43023962},{"payload":"cartridge-1d999ceef9f5f19e345a414438194a196e86d8cf7f8d22b9e7f27b6dcdfe5c21.bin","digest":"1d999ceef9f5f19e345a414438194a196e86d8cf7f8d22b9e7f27b6dcdfe5c21","bytes":604047}],"shareBox":"40vdz3rW8Cs1g4nIWB7z1OvBeIQbXJdpNQ7HO_lTwlmv0mJhpANn618zjlaOzq9tYI0F_lfD3jrk4jxXKetLdsWC4fLRF9HpmrgoLIe_cl8tmu5ZCFPyeZHMgpy_frbz8lZMcC4B333BXB_jTVSE14qfjg-yIYDwrraDN0EAfpDCKn0RrqHj","assets":[{"file":"shell-cabc4a4cb85a8e48c1e4.html","digest":"6875704c5060410f0818561d6f0d7310267a4a7af76bfba4484ccb0cafb421e3","type":"text/html; charset=utf-8"},{"file":"launcher-cabc4a4cb85a8e48c1e4.js","digest":"3363334e85f485d83397f2f613c4c0ce71b685763c926854d7ccdd4868d9ba79","type":"text/javascript; charset=utf-8"},{"file":"app.webmanifest","digest":"13c25d4ecbd02a2c7e842b66fe5621ba6d7c33c8ca1189e3859fc2194e84660c","type":"application/manifest+json"},{"file":"icon-192.png","digest":"f0b7796b296e1a67b6e3771944ed6ef395c3ef1199042aa25d6f5f0bd0d72424","type":"image/png"},{"file":"icon-512.png","digest":"45a93567bf56a70b9286f0ad3937dc2185bdc01fa1974ef822d256edbefd973d","type":"image/png"}]};
+const release = {"id":"5dc4b7643c90bea7a3f0","builtAt":1795730670563,"shell":"shell-5dc4b7643c90bea7a3f0.html","payload":"cartridge-bdb948db1001c2695e79213e60a4a4e9a2f577c79e19225b52427d52d36ec3af.bin","bytes":15481647,"digest":"bdb948db1001c2695e79213e60a4a4e9a2f577c79e19225b52427d52d36ec3af","codec":"gzip","parts":[{"payload":"cartridge-1013530f1681e438ae718f723569b464a29bebeb834fb0c7168f68db6e8b8e82.bin","digest":"1013530f1681e438ae718f723569b464a29bebeb834fb0c7168f68db6e8b8e82","bytes":43023962},{"payload":"cartridge-9dc52bff6f810582f3928a7cf2ecc2c79847d9c76ca5779b3eb953a887c376a1.bin","digest":"9dc52bff6f810582f3928a7cf2ecc2c79847d9c76ca5779b3eb953a887c376a1","bytes":604047}],"assets":[{"file":"shell-5dc4b7643c90bea7a3f0.html","digest":"d1c21d5f13538e0cc0bc150f263c64fb8c8ba54e2e6f033a39e202ad2e92e632","type":"text/html; charset=utf-8"},{"file":"launcher-5dc4b7643c90bea7a3f0.js","digest":"762aa304b5a261b326baed2d21019cde45dde9463034da86c5deb77842053ba7","type":"text/javascript; charset=utf-8"},{"file":"app.webmanifest","digest":"13c25d4ecbd02a2c7e842b66fe5621ba6d7c33c8ca1189e3859fc2194e84660c","type":"application/manifest+json"},{"file":"icon-192.png","digest":"f0b7796b296e1a67b6e3771944ed6ef395c3ef1199042aa25d6f5f0bd0d72424","type":"image/png"},{"file":"icon-512.png","digest":"45a93567bf56a70b9286f0ad3937dc2185bdc01fa1974ef822d256edbefd973d","type":"image/png"}]};
 const base = new URL('./', self.location.href);
 const prefix = 'private-arcade:' + base.pathname + ':release-';
 const cacheName = prefix + release.id;
@@ -7,6 +7,7 @@ const shellUrl = new URL(release.shell, base).href;
 const payloadUrl = new URL(release.payload, base).href;
 const partUrls=[payloadUrl,...release.parts.map(part=>new URL(part.payload,base).href)];
 const staticUrls = release.assets.map(asset => new URL(asset.file, base).href);
+const enrollmentPaths=['__home-enrollment-box','__home-enrollment-seed'].map(path=>base.pathname+path);
 const builtMarker = id => new URL('installed-' + id, base).href;
 const requestedId = self.location.searchParams
   ? self.location.searchParams.get('v')
@@ -64,6 +65,7 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('message',event=>{
   if (event.data === 'arcade-release') event.ports[0]?.postMessage(release.id);
+  if (event.data === 'arcade-enrollment-frame') event.ports[0]?.postMessage(true);
   if (event.data === 'arcade-activate') event.waitUntil(self.skipWaiting());
   if (event.data === 'arcade-installation') {
     event.waitUntil((async () => {
@@ -182,6 +184,13 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== base.origin) return;
+  if (request.mode === 'navigate' && enrollmentPaths.includes(url.pathname)) {
+    event.respondWith(new Response('<!doctype html><meta name="arcade-enrollment-frame" content="local">', {headers:{
+      'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
+      'Content-Security-Policy':"default-src 'none'; frame-ancestors 'self'",'Referrer-Policy':'no-referrer'
+    }}));
+    return;
+  }
   const navigation = request.mode === 'navigate' && [base.pathname,base.pathname+'index.html',base.pathname+'play.html'].includes(url.pathname);
   const launcherId = url.pathname.startsWith(base.pathname) && url.pathname.slice(base.pathname.length).match(/^launcher-([a-f0-9]{20})\.js$/)?.[1];
   if (!navigation && !launcherId && !staticUrls.includes(url.href) && !partUrls.includes(url.href)) return;
