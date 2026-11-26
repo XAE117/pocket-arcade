@@ -8,7 +8,8 @@
 <meta name="theme-color" content="#142238">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Super Splash Bros. &amp; Sisters">
-<meta name="private-arcade-build" content="cd49aae87eeaa883432e">
+<meta name="private-arcade-build" content="91feff1eed642a0a14c6">
+<meta name="private-arcade-build-time" content="1795728656878">
 <link rel="canonical" href="./">
 <link rel="manifest" href="./app.webmanifest">
 <link rel="apple-touch-icon" href="./icon-192.png">
@@ -42,6 +43,7 @@ input{min-width:0;width:100%;padding:8px 10px;border:1px solid #69847c;backgroun
 input::placeholder{color:#586761}
 button{appearance:none;justify-self:start;border:1px solid #1a5256;padding:8px 19px;display:inline-flex;align-items:center;gap:12px;background:#146367;color:#fff9df;font-weight:800;cursor:pointer;box-shadow:0 3px 0 #0b4549;line-height:1.2}
 button:hover{background:#0d565b}
+#check-update{background:transparent;color:#254a53;border-color:#788781;box-shadow:none;font-size:.88rem;min-height:44px}
 #play{background:#f3c875;color:#202b3b;border-color:#8b5d34;box-shadow:0 3px 0 #84572e}
 #play:hover{background:#ffda89}
 #play::after{content:"";width:0;height:0;border-top:6px solid transparent;border-bottom:6px solid transparent;border-left:8px solid currentColor}
@@ -82,7 +84,7 @@ progress::-moz-progress-bar{background:#1b7675;border-radius:12px}
 .arcade-transfer-meter{display:block;width:100%;margin:0 0 1rem}
 .arcade-transfer-actions{display:flex;gap:10px}
 </style>
-<script defer src="./launcher-cd49aae87eeaa883432e.js"></script>
+<script defer src="./launcher-91feff1eed642a0a14c6.js"></script>
 </head>
 <body>
 <main data-phase="invitation" aria-labelledby="brand-title">
@@ -129,6 +131,7 @@ progress::-moz-progress-bar{background:#1b7675;border-radius:12px}
     <button id="retry" type="button" hidden>Retry download</button>
     <button id="play" type="button" hidden>Play</button>
     <button id="save-offline" type="button" hidden>Save full game for offline play</button>
+    <button id="check-update" type="button">Check for updates</button>
     <noscript>Enable JavaScript in Safari to open your invitation.</noscript>
   </section>
 </main>
