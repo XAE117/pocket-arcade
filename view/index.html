@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow,noarchive"><meta name="theme-color" content="#142535">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-q6SIScbZuijUgrwhMTw5OXRfi+BNT7jgm+4p7TChPQE='; style-src 'sha256-SSNHe/4Zqzlhz+vcz/6v5GujGhAiGzX2y+PYRm61Du0='; connect-src 'self'; img-src blob: data:; media-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-n7XfVOoOEqyUS6Yoq3qhrcujFNQpyeCDJ4kdMn7t/9A='; style-src 'sha256-SSNHe/4Zqzlhz+vcz/6v5GujGhAiGzX2y+PYRm61Du0='; connect-src 'self'; img-src blob: data:; media-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <link rel="icon" href="data:,"><title>Private gallery</title>
 <style>:root{color-scheme:dark;--bg:#101f2d;--ink:#fff4dc;--muted:#c5d2d3;--gold:#ffd37d;--line:#586e77;font:500 16px/1.4 system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top left,#274556,var(--bg) 68%);color:var(--ink);min-height:100vh;min-height:100svh}
@@ -51,9 +51,9 @@ button:focus-visible,input:focus-visible{outline:3px solid #fff0bc;outline-offse
 <script>(() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  let key, catalog, generation = 0, section = 0, movieUrl;
+  let key, catalog, generation = 0, section = 0, movieUrl, chapterStart = 0;
   const sheets = new Map();
-  const manifestAsset = 'a822c5fdd5e1e93ec94038cbfa4822f1f2ac053d.bin';
+  const manifestAsset = '8a0abe973d8aac2720cc623f8ba440c69268718a.bin';
 
   function takeInvitation(input) {
     const value = input.trim();
@@ -98,6 +98,8 @@ button:focus-visible,input:focus-visible{outline:3px solid #fff0bc;outline-offse
   }
   async function selectGroup(index) {
     const group=catalog?.groups[index];if(!group || !key)return;
+    chapterStart=group.startSeconds||0;
+    $('load-movie').textContent=chapterStart?'Watch '+group.name.toLowerCase()+' in motion':catalog.movie.button;
     const seq=++section;
     $('roster-tabs').querySelectorAll('button').forEach((b,i)=>b.setAttribute('aria-pressed',String(i===index)));
     $('group-heading').textContent=group.name;$('cards').replaceChildren();$('group-status').textContent='Loading characters…';
@@ -129,19 +131,22 @@ button:focus-visible,input:focus-visible{outline:3px solid #fff0bc;outline-offse
       const tabs=$('roster-tabs');tabs.replaceChildren();
       manifest.groups.forEach((group,i)=>{const tab=document.createElement('button');tab.type='button';tab.dataset.group=String(i);tab.textContent=group.name;tab.addEventListener('click',()=>selectGroup(i));tabs.append(tab);});
       $('lock-status').textContent='';$('locked').hidden=true;$('gallery').hidden=false;$('title').focus({preventScroll:true});
-      await selectGroup(0);
+      const requested = Number(new URLSearchParams(location.search).get('g'));
+      await selectGroup(Number.isInteger(requested) && manifest.groups[requested] ? requested : 0);
     }catch{if(seq===generation)$('lock-status').textContent='Could not open this invitation. Check the full link and try again.';}
   }
   $('invite-form').addEventListener('submit',e=>{e.preventDefault();unlock(takeInvitation($('invitation').value));});
   $('lock').addEventListener('click',()=>{lock();$('invitation').focus();});
   $('load-movie').addEventListener('click',async()=>{
     if(!key||$('load-movie').disabled)return;
-    const current=key,seq=generation,video=$('movie');
+    const current=key,seq=generation,video=$('movie'),start=chapterStart;
     $('load-movie').disabled=true;$('movie-status').textContent='Loading video…';
     try{
       const plain=await decrypt(catalog.movie.asset,current);
       if(seq!==generation)return;
-      movieUrl=URL.createObjectURL(new Blob([plain],{type:'video/mp4'}));video.src=movieUrl;video.hidden=false;video.load();
+      movieUrl=URL.createObjectURL(new Blob([plain],{type:'video/mp4'}));
+      if(start)video.addEventListener('loadedmetadata',()=>{if(seq===generation)video.currentTime=start},{once:true});
+      video.src=movieUrl;video.hidden=false;video.load();
       $('load-movie').hidden=true;$('movie-status').textContent='';
       try {await video.play();} catch {if(seq===generation)$('movie-status').textContent='Tap play on the video.';}
     }catch{if(seq===generation){$('movie-status').textContent='The video could not load. Tap to retry.';$('load-movie').disabled=false;}}
