@@ -1,5 +1,5 @@
 'use strict';
-const release = {"id":"6420f6e858c26be3521e","shell":"shell-6420f6e858c26be3521e.html","payload":"cartridge-7c282aa1b130aff915f4a67f53edf9c378cca09c7968639ce433393a41d4f171.bin","bytes":14054819,"digest":"7c282aa1b130aff915f4a67f53edf9c378cca09c7968639ce433393a41d4f171","codec":"gzip","assets":[{"file":"shell-6420f6e858c26be3521e.html","digest":"111be57a5bd41d063fb2c3d8bb2f6de024ab000806e0e9c89ad7ae548cc88c02","type":"text/html; charset=utf-8"},{"file":"launcher-6420f6e858c26be3521e.js","digest":"b5b019791cf965f30107b91169b3c9eaabd3bb4c0352bef40fead80c702d95fe","type":"text/javascript; charset=utf-8"},{"file":"app.webmanifest","digest":"71cebdb94499ce881c4bfe10cdacb0334c1933c2e0dd735133156a510430154d","type":"application/manifest+json"},{"file":"icon-192.png","digest":"7e4ffb57a7114dd7b11ac7ebe9dce84f4cee648920863a3b4b60c3910e72eb12","type":"image/png"},{"file":"icon-512.png","digest":"52344bb3ae195fbcbd13674d59e644e32991ee3f15d954b7bd8b77979a0daaf5","type":"image/png"}]};
+const release = {"id":"d7d3451c68a31a3cd407","shell":"shell-d7d3451c68a31a3cd407.html","payload":"cartridge-f5c0fbf5e721e34fa4373a744aec6b5686b715ec2e4ef6460f9847e4bfe9e60a.bin","bytes":17910820,"digest":"f5c0fbf5e721e34fa4373a744aec6b5686b715ec2e4ef6460f9847e4bfe9e60a","codec":"gzip","assets":[{"file":"shell-d7d3451c68a31a3cd407.html","digest":"c712f4227a723d87d519adbf7fb977c8cd102be41e9f1af716d5c3bcfcf73bd2","type":"text/html; charset=utf-8"},{"file":"launcher-d7d3451c68a31a3cd407.js","digest":"01894f3aa467b17c5c6ef193c7ab8310b0a50eb1ccec3965246b28befc0f2148","type":"text/javascript; charset=utf-8"},{"file":"app.webmanifest","digest":"71cebdb94499ce881c4bfe10cdacb0334c1933c2e0dd735133156a510430154d","type":"application/manifest+json"},{"file":"icon-192.png","digest":"7e4ffb57a7114dd7b11ac7ebe9dce84f4cee648920863a3b4b60c3910e72eb12","type":"image/png"},{"file":"icon-512.png","digest":"52344bb3ae195fbcbd13674d59e644e32991ee3f15d954b7bd8b77979a0daaf5","type":"image/png"}]};
 const base = new URL('./', self.location.href);
 const prefix = 'private-arcade:' + base.pathname + ':release-';
 const cacheName = prefix + release.id;
@@ -61,10 +61,20 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== base.origin) return;
-  const navigation = request.mode === 'navigate' && (url.pathname === base.pathname || url.pathname === base.pathname + 'index.html');
+  const latest = request.mode === 'navigate' && url.pathname === base.pathname + 'play.html';
+  const navigation = latest || request.mode === 'navigate' && (url.pathname === base.pathname || url.pathname === base.pathname + 'index.html');
   if (!navigation && !staticUrls.includes(url.href) && url.href !== payloadUrl) return;
   event.respondWith((async () => {
     const cache = await caches.open(cacheName);
+    // Explicit invitation opens check the current release; an installed icon starts instantly offline.
+    if (latest) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2500);
+      try {
+        const next = await fetch(request, {cache:'no-store', signal:controller.signal});
+        if (next.ok && next.headers.get('Content-Type')?.includes('text/html')) return next;
+      } catch {} finally { clearTimeout(timer); }
+    }
     // The client uses no-store only after independently rejecting a local copy.
     if (request.cache === 'no-store' && url.href === payloadUrl) return fetch(request);
     return (await cache.match(navigation ? shellUrl : request)) || fetch(request);
