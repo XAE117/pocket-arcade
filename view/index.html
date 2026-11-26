@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow,noarchive"><meta name="theme-color" content="#142535">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-q6SIScbZuijUgrwhMTw5OXRfi+BNT7jgm+4p7TChPQE='; style-src 'sha256-SSNHe/4Zqzlhz+vcz/6v5GujGhAiGzX2y+PYRm61Du0='; connect-src 'self'; img-src blob: data:; media-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<link rel="icon" href="data:,"><title>Private gallery</title>
+<style>:root{color-scheme:dark;--bg:#101f2d;--ink:#fff4dc;--muted:#c5d2d3;--gold:#ffd37d;--line:#586e77;font:500 16px/1.4 system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top left,#274556,var(--bg) 68%);color:var(--ink);min-height:100vh;min-height:100svh}
+[hidden]{display:none!important}button,input{font:inherit}
+button{min-height:44px;padding:8px 15px;border-radius:6px;border:1px solid var(--line);font-weight:700;cursor:pointer;touch-action:manipulation;color:var(--ink);background:#263d4b}
+button:focus-visible,input:focus-visible{outline:3px solid #fff0bc;outline-offset:3px}button:disabled{opacity:.65;cursor:progress}
+.primary,#roster-tabs [aria-pressed=true]{background:var(--gold);color:#29271d;border-color:#ffdf94}
+.subtle{background:transparent;font-size:.88rem}h1,h2,p{margin:0}h1,h2{letter-spacing:-.035em;line-height:1.08}
+.lock-page{min-height:100svh;display:grid;place-items:center;padding:20px}
+.invite-card{width:min(100%,384px);background:#142a38;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:8px;padding:clamp(20px,5vw,34px);box-shadow:0 10px 48px #08171e55}
+.invite-card h1{font-size:2rem;margin:12px 0 8px}.invite-card>p{color:var(--muted)}.invite-card form{display:grid;gap:7px;margin-top:19px}
+.invite-card label{font-size:.87rem;font-weight:750}.invite-card input{min-width:0;background:#0e1e2a;border:1px solid #728a92;border-radius:4px;min-height:44px;padding:7px 10px;color:white}
+.keyhole{border:2px solid #edc67b;border-radius:4px;width:25px;height:18px;margin:10px 0 0 1px;position:relative}.keyhole:before{content:"";position:absolute;left:4px;top:-13px;width:11px;height:12px;border:2px solid #edc67b;border-bottom:0;border-radius:9px 9px 0 0}
+.masthead{padding:max(14px,env(safe-area-inset-top)) max(18px,3.5vw) 15px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#112532;border-bottom:1px solid var(--line)}
+.masthead h1{font-size:clamp(22px,3.6vw,46px);font-weight:850}.masthead .subtle{flex:none}
+.content{max-width:1190px;margin:auto;padding:clamp(14px,2.7vw,34px) max(12px,env(safe-area-inset-left)) max(28px,env(safe-area-inset-bottom))}
+.movie-panel{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 15px;background:#183342;border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:7px;padding:clamp(12px,2vw,20px)}
+.movie-panel h2{font-size:clamp(21px,2.5vw,33px)}.movie-panel p{color:var(--muted);margin-top:4px}.movie-panel video{grid-column:1/-1;width:100%;aspect-ratio:16/9;margin-top:13px;background:#081019;border-radius:3px}
+.status{color:var(--muted);font-size:.9rem}.status:empty{display:none}.status:not(:empty){margin-top:8px}.movie-panel .status{grid-column:1/-1}
+.roster{margin-top:clamp(15px,2.5vw,28px)}#roster-tabs{display:flex;justify-content:flex-start;gap:5px;margin-bottom:10px}
+#cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}#cards article{margin:0;min-width:0}#cards canvas{display:block;width:100%;height:auto;border-radius:4px}
+.reader-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media(max-width:760px){#cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.masthead{padding:12px}.masthead h1{font-size:22px}.masthead button{font-size:.78rem;padding-inline:9px}.movie-panel{grid-template-columns:1fr;gap:8px}.movie-panel>button{justify-self:start}.movie-panel p{font-size:.88rem}#cards{grid-template-columns:1fr;gap:10px}#roster-tabs button{flex:1;padding-inline:5px}}
+</style></head>
+<body>
+<main id="locked" class="lock-page">
+<section class="invite-card"><div class="keyhole" aria-hidden="true"></div><h1>Private gallery</h1>
+<p>Open your invitation link, or paste it below.</p>
+<form id="invite-form" autocomplete="off"><label for="invitation">Invitation link</label>
+<input type="password" id="invitation" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+<button type="submit" class="primary">Open gallery</button></form>
+<p id="lock-status" class="status" role="status"></p></section></main>
+<main id="gallery" hidden>
+<header class="masthead"><h1 id="title" tabindex="-1"></h1><button id="lock" class="subtle">Lock gallery</button></header>
+<div class="content"><section class="movie-panel" aria-labelledby="movie-heading">
+<div><h2 id="movie-heading"></h2><p id="movie-info"></p></div>
+<button id="load-movie" class="primary"></button>
+<p id="movie-status" class="status" role="status"></p>
+<video id="movie" controls playsinline preload="none" aria-label="Gallery video" hidden></video>
+</section>
+<section class="roster"><div id="roster-tabs" role="group" aria-label="Character groups"></div>
+<h2 id="group-heading" class="reader-only"></h2><p id="group-status" class="status" role="status"></p>
+<div id="cards" aria-labelledby="group-heading"></div></section></div></main>
+<script>(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  let key, catalog, generation = 0, section = 0, movieUrl;
+  const sheets = new Map();
+  const manifestAsset = 'a822c5fdd5e1e93ec94038cbfa4822f1f2ac053d.bin';
+
+  function takeInvitation(input) {
+    const value = input.trim();
+    if (/^[A-Za-z0-9_-]{43}$/.test(value)) return value;
+    const pos = value.indexOf('#');
+    return pos < 0 ? '' : new URLSearchParams(value.slice(pos+1)).get('k') || '';
+  }
+  function readKey(raw) {
+    if (!/^[A-Za-z0-9_-]{43}$/.test(raw)) throw new Error();
+    const bytes = Uint8Array.from(atob(raw.replace(/-/g,'+').replace(/_/g,'/')+'='), c=>c.charCodeAt(0));
+    return crypto.subtle.importKey('raw',bytes,'AES-GCM',false,['decrypt']);
+  }
+  async function decrypt(name, activeKey) {
+    if (!/^[a-f0-9]{40}\.bin$/.test(name)) throw new Error();
+    const response = await fetch('./'+name,{cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer',redirect:'error'});
+    if (!response.ok) throw new Error();
+    const packed = new Uint8Array(await response.arrayBuffer());
+    if (packed.length < 28) throw new Error();
+    return crypto.subtle.decrypt({name:'AES-GCM',iv:packed.subarray(0,12)},activeKey,packed.subarray(12));
+  }
+  function lock() {
+    generation++; section++;
+    key=null;catalog=null;sheets.clear();
+    const video=$('movie');video.pause();video.removeAttribute('src');video.load();video.hidden=true;video.setAttribute('aria-label','Gallery video');
+    if(movieUrl){URL.revokeObjectURL(movieUrl);movieUrl=null;}
+    for(const name of ['title','movie-heading','movie-info','movie-status','load-movie','group-heading','group-status','cards','roster-tabs'])
+      $(name).replaceChildren();
+    $('gallery').hidden=true;$('locked').hidden=false;$('invitation').value='';$('load-movie').hidden=false;$('load-movie').disabled=false;
+    $('lock-status').textContent='';document.title='Private gallery';
+  }
+  function groupImage(group,activeKey) {
+    if (!sheets.has(group.asset)) {
+      const task = decrypt(group.asset,activeKey).then(async plain=>{
+        const url=URL.createObjectURL(new Blob([plain],{type:'image/jpeg'})), image=new Image();
+        try { image.src=url;await image.decode();return image; }
+        finally { URL.revokeObjectURL(url); }
+      });
+      sheets.set(group.asset,task);
+      task.catch(()=>{if(sheets.get(group.asset)===task)sheets.delete(group.asset);});
+    }
+    return sheets.get(group.asset);
+  }
+  async function selectGroup(index) {
+    const group=catalog?.groups[index];if(!group || !key)return;
+    const seq=++section;
+    $('roster-tabs').querySelectorAll('button').forEach((b,i)=>b.setAttribute('aria-pressed',String(i===index)));
+    $('group-heading').textContent=group.name;$('cards').replaceChildren();$('group-status').textContent='Loading characters…';
+    try{
+      const image=await groupImage(group,key);
+      if(seq!==section)return;
+      const frag=document.createDocumentFragment();
+      for(const member of group.members){
+        const article=document.createElement('article'),title=document.createElement('h3'),view=document.createElement('canvas');
+        article.dataset.member=String(member.id);title.className='reader-only';title.textContent=member.name;
+        const [x,y,w,h]=member.crop;view.width=w;view.height=h;
+        view.setAttribute('role','img');view.setAttribute('aria-label',member.name+' in character select and in match. Special move: '+member.move+'.');
+        view.getContext('2d').drawImage(image,x,y,w,h,0,0,w,h);article.append(title,view);frag.append(article);
+      }
+      $('cards').replaceChildren(frag);$('group-status').textContent='';
+    }catch{if(seq===section)$('group-status').textContent='The artwork could not load. Tap the group to retry.';}
+  }
+  async function unlock(raw) {
+    const seq=++generation;
+    $('invitation').value='';$('lock-status').textContent='Opening gallery…';
+    if(!window.crypto?.subtle){$('lock-status').textContent='Open the invitation using HTTPS in your browser.';return;}
+    try {
+      const candidate=await readKey(raw);raw='';
+      const manifest=JSON.parse(new TextDecoder().decode(await decrypt(manifestAsset,candidate)));
+      if(seq!==generation)return;
+      key=candidate;catalog=manifest;document.title=manifest.title;$('title').textContent=manifest.title;
+      $('movie-heading').textContent=manifest.movie.title;$('movie-info').textContent=manifest.movie.description;
+      $('movie').setAttribute('aria-label',manifest.movie.title);$('load-movie').textContent=manifest.movie.button;
+      const tabs=$('roster-tabs');tabs.replaceChildren();
+      manifest.groups.forEach((group,i)=>{const tab=document.createElement('button');tab.type='button';tab.dataset.group=String(i);tab.textContent=group.name;tab.addEventListener('click',()=>selectGroup(i));tabs.append(tab);});
+      $('lock-status').textContent='';$('locked').hidden=true;$('gallery').hidden=false;$('title').focus({preventScroll:true});
+      await selectGroup(0);
+    }catch{if(seq===generation)$('lock-status').textContent='Could not open this invitation. Check the full link and try again.';}
+  }
+  $('invite-form').addEventListener('submit',e=>{e.preventDefault();unlock(takeInvitation($('invitation').value));});
+  $('lock').addEventListener('click',()=>{lock();$('invitation').focus();});
+  $('load-movie').addEventListener('click',async()=>{
+    if(!key||$('load-movie').disabled)return;
+    const current=key,seq=generation,video=$('movie');
+    $('load-movie').disabled=true;$('movie-status').textContent='Loading video…';
+    try{
+      const plain=await decrypt(catalog.movie.asset,current);
+      if(seq!==generation)return;
+      movieUrl=URL.createObjectURL(new Blob([plain],{type:'video/mp4'}));video.src=movieUrl;video.hidden=false;video.load();
+      $('load-movie').hidden=true;$('movie-status').textContent='';
+      try {await video.play();} catch {if(seq===generation)$('movie-status').textContent='Tap play on the video.';}
+    }catch{if(seq===generation){$('movie-status').textContent='The video could not load. Tap to retry.';$('load-movie').disabled=false;}}
+  });
+  function useAddressInvitation() {
+    if(!location.hash)return;
+    const invitation=takeInvitation(location.hash);
+    history.replaceState(null,'',location.pathname+location.search);
+    if(invitation)unlock(invitation);
+  }
+  window.addEventListener('hashchange',()=>{lock();useAddressInvitation();});
+  window.addEventListener('pagehide',lock);
+  useAddressInvitation();
+})();
+</script></body></html>
