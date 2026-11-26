@@ -1,5 +1,5 @@
 'use strict';
-const release = {"id":"9d5fb3c3034a1c33e2e6","shell":"shell-9d5fb3c3034a1c33e2e6.html","payload":"cartridge-533578fade013f133829372a0148872807694647231877dfa228130c121ea93f.bin","bytes":15218723,"digest":"533578fade013f133829372a0148872807694647231877dfa228130c121ea93f","codec":"gzip","parts":[{"payload":"cartridge-f001020837664e78104a2bdf62cc72b7416356656c58b4d42ebeeac625d91ee5.bin","digest":"f001020837664e78104a2bdf62cc72b7416356656c58b4d42ebeeac625d91ee5","bytes":37877863},{"payload":"cartridge-6f796c7a8ee77290c284a6067189e794481bd76b52a9340fc2fb7d916198db7f.bin","digest":"6f796c7a8ee77290c284a6067189e794481bd76b52a9340fc2fb7d916198db7f","bytes":604047}],"assets":[{"file":"shell-9d5fb3c3034a1c33e2e6.html","digest":"bf05d73b8a83ea4495f49e2ec354161e3dca4fa43f57b48233e3a55190e42994","type":"text/html; charset=utf-8"},{"file":"launcher-9d5fb3c3034a1c33e2e6.js","digest":"9c22238e171a7aebaf6666c4992d789d447e468030e93c64dfc957307ad0910d","type":"text/javascript; charset=utf-8"},{"file":"app.webmanifest","digest":"13c25d4ecbd02a2c7e842b66fe5621ba6d7c33c8ca1189e3859fc2194e84660c","type":"application/manifest+json"},{"file":"icon-192.png","digest":"f0b7796b296e1a67b6e3771944ed6ef395c3ef1199042aa25d6f5f0bd0d72424","type":"image/png"},{"file":"icon-512.png","digest":"45a93567bf56a70b9286f0ad3937dc2185bdc01fa1974ef822d256edbefd973d","type":"image/png"}]};
+const release = {"id":"d7f9f3dae7a320a20472","shell":"shell-d7f9f3dae7a320a20472.html","payload":"cartridge-bef5129c4140ed821010b0dd076139c1bf0d5315c1e9c3ad959ce488067f6e13.bin","bytes":15220053,"digest":"bef5129c4140ed821010b0dd076139c1bf0d5315c1e9c3ad959ce488067f6e13","codec":"gzip","parts":[{"payload":"cartridge-ce1cd7f4a713fc062454affb223e61f466fd77cdac554edd4edf043cbebbe654.bin","digest":"ce1cd7f4a713fc062454affb223e61f466fd77cdac554edd4edf043cbebbe654","bytes":38824839},{"payload":"cartridge-73de6afdc716ed370cd0db61df33653ea80831c85507831aa76e9ab04c274960.bin","digest":"73de6afdc716ed370cd0db61df33653ea80831c85507831aa76e9ab04c274960","bytes":604047}],"assets":[{"file":"shell-d7f9f3dae7a320a20472.html","digest":"8af6dd135dec6db1b02e6691a25fc2915d19ab6e7d44ef53498268e227a74b44","type":"text/html; charset=utf-8"},{"file":"launcher-d7f9f3dae7a320a20472.js","digest":"7abc2d775e46fc2359e5a302d78177eb29e0ad28b0866f29137499af7119c12a","type":"text/javascript; charset=utf-8"},{"file":"app.webmanifest","digest":"13c25d4ecbd02a2c7e842b66fe5621ba6d7c33c8ca1189e3859fc2194e84660c","type":"application/manifest+json"},{"file":"icon-192.png","digest":"f0b7796b296e1a67b6e3771944ed6ef395c3ef1199042aa25d6f5f0bd0d72424","type":"image/png"},{"file":"icon-512.png","digest":"45a93567bf56a70b9286f0ad3937dc2185bdc01fa1974ef822d256edbefd973d","type":"image/png"}]};
 const base = new URL('./', self.location.href);
 const prefix = 'private-arcade:' + base.pathname + ':release-';
 const cacheName = prefix + release.id;
@@ -32,16 +32,7 @@ async function getStaticAsset(asset) {
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(cacheName);
-    // A successful invite has normally already put this entry in the cache.
-    // An update running in the background needs to acquire its own ciphertext.
-    if (!(await cache.match(payloadUrl))) {
-      const response = await fetch(new Request(payloadUrl, {cache: 'reload', credentials: 'omit', redirect: 'error'}));
-      if (!response.ok) throw new Error('Cartridge download failed');
-      const bytes = await response.arrayBuffer();
-      if (bytes.byteLength !== release.bytes) throw new Error('Incomplete cartridge');
-      if (!(await verifyBytes(bytes, release.digest))) throw new Error('Cartridge verification failed');
-      await cache.put(payloadUrl, new Response(bytes, {headers: {'Content-Type': 'application/octet-stream'}}));
-    }
+    let keepFull = false;
     // Keep a prior complete offline installation usable across an update.
     // Legacy releases held all modes in one verified cartridge. A split
     // release carries a marker only after its launcher authenticated every part.
@@ -50,25 +41,41 @@ self.addEventListener('install', event => {
       const paths=(await old.keys()).map(request=>new URL(request.url).pathname.slice(base.pathname.length));
       const previousId=previous.slice(prefix.length);
       if(!paths.includes('shell-'+previousId+'.html'))continue;
-      let keepFull=paths.includes('full-'+previousId)||paths.includes('prefetched-'+previousId);
+      keepFull=paths.includes('full-'+previousId)||paths.includes('prefetched-'+previousId);
       if(!keepFull){
         const client=await old.match(new URL('launcher-'+previousId+'.js',base).href);
         if(client&&paths.some(path=>path.startsWith('cartridge-')))keepFull=!(await client.text()).includes('__arcadePart');
       }
-      if(keepFull)for(const part of release.parts){
-        const url=new URL(part.payload,base).href;
-        if(await cache.match(url))continue;
-        const response=await fetch(url,{cache:'reload',credentials:'omit',redirect:'error'});
-        if(!response.ok)throw Error('Update transfer failed');
-        const bytes=await response.arrayBuffer();
-        if(bytes.byteLength!==part.bytes||!(await verifyBytes(bytes,part.digest)))throw Error('Update verification failed');
-        await cache.put(url,new Response(bytes,{headers:{'Content-Type':'application/octet-stream'}}));
-      }
-      if(keepFull)await cache.put(new URL('prefetched-'+release.id,base).href,new Response('1'));
       break;
     }
+    const required = keepFull ? [release, ...release.parts] : [release];
+    const pending = [];
+    // Finish every download before writing any of this install's large bodies.
+    // A rejected install can leave WebKit's next worker with missing cache entries.
+    for (const part of required) {
+      const url = new URL(part.payload, base).href;
+      const stored = await cache.match(url);
+      if (stored && await verifyBytes(await stored.arrayBuffer(), part.digest)) continue;
+      const response = await fetch(url, {cache: 'reload', credentials: 'omit', redirect: 'error'});
+      if (!response.ok) throw new Error('Cartridge download failed');
+      const bytes = await response.arrayBuffer();
+      if (bytes.byteLength !== part.bytes || !(await verifyBytes(bytes, part.digest))) {
+        throw new Error('Cartridge verification failed');
+      }
+      pending.push({url, bytes});
+    }
     const assets = await Promise.all(release.assets.map(getStaticAsset));
+    for (const {url, bytes} of pending) {
+      await cache.put(url, new Response(bytes, {headers: {'Content-Type': 'application/octet-stream'}}));
+    }
     await Promise.all(assets.map(([url, response]) => cache.put(url, response)));
+    for (const part of required) {
+      const stored = await cache.match(new URL(part.payload, base).href);
+      if (!stored || !(await verifyBytes(await stored.arrayBuffer(), part.digest))) {
+        throw new Error('Offline installation incomplete');
+      }
+    }
+    if (keepFull) await cache.put(new URL('prefetched-' + release.id, base).href, new Response('1'));
     await self.skipWaiting();
   })());
 });
