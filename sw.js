@@ -1,5 +1,5 @@
 'use strict';
-const release = {"id":"72397d235ca0d8be3c4a","builtAt":1795738268414,"shell":"shell-72397d235ca0d8be3c4a.html","payload":"cartridge-9d98f19346e68233d9b294cff573f1c16b3a360f1fccd79690d513b591d4734a.bin","bytes":17719361,"digest":"9d98f19346e68233d9b294cff573f1c16b3a360f1fccd79690d513b591d4734a","codec":"gzip","parts":[{"payload":"cartridge-3925f781fea09f242da08099874c757f5bfee34cdb66e66c9f3a2956ca1598b5.bin","digest":"3925f781fea09f242da08099874c757f5bfee34cdb66e66c9f3a2956ca1598b5","bytes":43326499},{"payload":"cartridge-d3128b58d71145eb169be19b88ebf56fbbe38da66159f21148d2320f9a422b1c.bin","digest":"d3128b58d71145eb169be19b88ebf56fbbe38da66159f21148d2320f9a422b1c","bytes":683174}],"assets":[{"file":"shell-72397d235ca0d8be3c4a.html","digest":"a9d96cc2e17fe45d98aa1c19c85c916d48c2ea5b9616b216edd41a05d42bccd0","type":"text/html; charset=utf-8"},{"file":"launcher-72397d235ca0d8be3c4a.js","digest":"54f9bf27fc93e1dbd91a186b7e71433c419830663ea7b5651f8d461c887718e1","type":"text/javascript; charset=utf-8"},{"file":"app.webmanifest","digest":"13c25d4ecbd02a2c7e842b66fe5621ba6d7c33c8ca1189e3859fc2194e84660c","type":"application/manifest+json"},{"file":"icon-192.png","digest":"a18a5e350116cfd9beafd1ec7e23ae65bbc8f0921ef000427ca1717d1660697e","type":"image/png"},{"file":"icon-512.png","digest":"67e2f7f9fe8c2a74a1e50427eded1efcedcdf8ddf2b4b23991e8d9a001ebd90a","type":"image/png"}]};
+const release = {"id":"4c824435f6a60c266798","builtAt":1795741875937,"shell":"shell-4c824435f6a60c266798.html","payload":"cartridge-c6fe403abf0336c064c3d986e5101e1dac7b798138d1437b82d4894f383659f7.bin","bytes":17722913,"digest":"c6fe403abf0336c064c3d986e5101e1dac7b798138d1437b82d4894f383659f7","codec":"gzip","parts":[{"payload":"cartridge-3925f781fea09f242da08099874c757f5bfee34cdb66e66c9f3a2956ca1598b5.bin","digest":"3925f781fea09f242da08099874c757f5bfee34cdb66e66c9f3a2956ca1598b5","bytes":43326499},{"payload":"cartridge-d3128b58d71145eb169be19b88ebf56fbbe38da66159f21148d2320f9a422b1c.bin","digest":"d3128b58d71145eb169be19b88ebf56fbbe38da66159f21148d2320f9a422b1c","bytes":683174}],"assets":[{"file":"shell-4c824435f6a60c266798.html","digest":"d1a0225d20809f9c94603cde4d0cc2c5aafc2325cdfbfe5fbb7f0a96a7bedc84","type":"text/html; charset=utf-8"},{"file":"launcher-4c824435f6a60c266798.js","digest":"6e865a110314cceeb5409c5c05271963ec5aedc646c0c514eebaa4a52f8ebf4a","type":"text/javascript; charset=utf-8"},{"file":"app.webmanifest","digest":"13c25d4ecbd02a2c7e842b66fe5621ba6d7c33c8ca1189e3859fc2194e84660c","type":"application/manifest+json"},{"file":"icon-192.png","digest":"a18a5e350116cfd9beafd1ec7e23ae65bbc8f0921ef000427ca1717d1660697e","type":"image/png"},{"file":"icon-512.png","digest":"67e2f7f9fe8c2a74a1e50427eded1efcedcdf8ddf2b4b23991e8d9a001ebd90a","type":"image/png"}]};
 const base = new URL('./', self.location.href);
 const prefix = 'private-arcade:' + base.pathname + ':release-';
 const cacheName = prefix + release.id;
@@ -107,6 +107,17 @@ self.addEventListener('message',event=>{
   }
 });
 
+// These messages contain only public release/attempt identifiers and verified file counts.
+async function reportInstallProgress(completed,total) {
+  try {
+    const attempt = new URL(self.location.href).searchParams.get('attempt') || '';
+    const clients = await self.clients.matchAll({type:'window', includeUncontrolled:true});
+    for (const client of clients) {
+      client.postMessage({type:'arcade-update-progress', id:release.id, attempt, completed, total});
+    }
+  } catch {} // A missing listener must never change installation or recovery.
+}
+
 async function installRelease() {
     if (requestedId && requestedId !== release.id) throw Error('The requested release is not at this origin yet');
     const cache = await caches.open(cacheName);
@@ -146,15 +157,20 @@ async function installRelease() {
     const pending = [];
     // Finish every download before writing any of this install's large bodies.
     // A rejected install can leave WebKit's next worker with missing cache entries.
+    let verifiedCount = 0;
     for (const part of required) {
       const url = new URL(part.payload, base).href;
-      if (await verifiedPart(await cache.match(url), part)) continue;
+      if (await verifiedPart(await cache.match(url), part)) {
+        await reportInstallProgress(++verifiedCount, required.length);
+        continue;
+      }
       const stored = await caches.match(url);
       const bytes = await verifiedPart(stored, part) || await verifiedPart(await fetch(url, {
         cache: 'no-store', credentials: 'omit', redirect: 'error', referrerPolicy:'no-referrer'
       }), part);
       if (!bytes) throw new Error('Cartridge verification failed');
       pending.push({url, bytes});
+      await reportInstallProgress(++verifiedCount, required.length);
     }
     const assets = await Promise.all(release.assets.map(getStaticAsset));
     for (const {url, bytes} of pending) {
