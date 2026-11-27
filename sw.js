@@ -1,5 +1,5 @@
 'use strict';
-const release = {"id":"3bf40cacce22a084216d","builtAt":1795731463036,"shell":"shell-3bf40cacce22a084216d.html","payload":"cartridge-5d99b3bca035a4babb6bddfba830572c5de5e1eb6a4c660e8ce49142da97f4b1.bin","bytes":15946626,"digest":"5d99b3bca035a4babb6bddfba830572c5de5e1eb6a4c660e8ce49142da97f4b1","codec":"gzip","parts":[{"payload":"cartridge-ce6c1800bb877d42a1fcc9b009ded3e47dc1924e8033101ae1919445520f8f9f.bin","digest":"ce6c1800bb877d42a1fcc9b009ded3e47dc1924e8033101ae1919445520f8f9f","bytes":43023962},{"payload":"cartridge-88a39662f77a758e06f232298350bde27eb28b979145b260993abfd28ebebb95.bin","digest":"88a39662f77a758e06f232298350bde27eb28b979145b260993abfd28ebebb95","bytes":604047}],"assets":[{"file":"shell-3bf40cacce22a084216d.html","digest":"49ad1c3b3ea360d6ab983a4efd98c8322c72284e2b5befa8508db7670753c052","type":"text/html; charset=utf-8"},{"file":"launcher-3bf40cacce22a084216d.js","digest":"c466eb676e33aee1962500726237792b8c56cb2925707249bff24a681fa7cd2b","type":"text/javascript; charset=utf-8"},{"file":"app.webmanifest","digest":"13c25d4ecbd02a2c7e842b66fe5621ba6d7c33c8ca1189e3859fc2194e84660c","type":"application/manifest+json"},{"file":"icon-192.png","digest":"a18a5e350116cfd9beafd1ec7e23ae65bbc8f0921ef000427ca1717d1660697e","type":"image/png"},{"file":"icon-512.png","digest":"67e2f7f9fe8c2a74a1e50427eded1efcedcdf8ddf2b4b23991e8d9a001ebd90a","type":"image/png"}]};
+const release = {"id":"72397d235ca0d8be3c4a","builtAt":1795738268414,"shell":"shell-72397d235ca0d8be3c4a.html","payload":"cartridge-9d98f19346e68233d9b294cff573f1c16b3a360f1fccd79690d513b591d4734a.bin","bytes":17719361,"digest":"9d98f19346e68233d9b294cff573f1c16b3a360f1fccd79690d513b591d4734a","codec":"gzip","parts":[{"payload":"cartridge-3925f781fea09f242da08099874c757f5bfee34cdb66e66c9f3a2956ca1598b5.bin","digest":"3925f781fea09f242da08099874c757f5bfee34cdb66e66c9f3a2956ca1598b5","bytes":43326499},{"payload":"cartridge-d3128b58d71145eb169be19b88ebf56fbbe38da66159f21148d2320f9a422b1c.bin","digest":"d3128b58d71145eb169be19b88ebf56fbbe38da66159f21148d2320f9a422b1c","bytes":683174}],"assets":[{"file":"shell-72397d235ca0d8be3c4a.html","digest":"a9d96cc2e17fe45d98aa1c19c85c916d48c2ea5b9616b216edd41a05d42bccd0","type":"text/html; charset=utf-8"},{"file":"launcher-72397d235ca0d8be3c4a.js","digest":"54f9bf27fc93e1dbd91a186b7e71433c419830663ea7b5651f8d461c887718e1","type":"text/javascript; charset=utf-8"},{"file":"app.webmanifest","digest":"13c25d4ecbd02a2c7e842b66fe5621ba6d7c33c8ca1189e3859fc2194e84660c","type":"application/manifest+json"},{"file":"icon-192.png","digest":"a18a5e350116cfd9beafd1ec7e23ae65bbc8f0921ef000427ca1717d1660697e","type":"image/png"},{"file":"icon-512.png","digest":"67e2f7f9fe8c2a74a1e50427eded1efcedcdf8ddf2b4b23991e8d9a001ebd90a","type":"image/png"}]};
 const base = new URL('./', self.location.href);
 const prefix = 'private-arcade:' + base.pathname + ':release-';
 const cacheName = prefix + release.id;
@@ -9,6 +9,9 @@ const partUrls=[payloadUrl,...release.parts.map(part=>new URL(part.payload,base)
 const staticUrls = release.assets.map(asset => new URL(asset.file, base).href);
 const enrollmentPaths=['__home-enrollment-box','__home-enrollment-seed'].map(path=>base.pathname+path);
 const builtMarker = id => new URL('installed-' + id, base).href;
+const fullMarker = id => new URL('full-' + id, base).href;
+const prefetchedMarker = id => new URL('prefetched-' + id, base).href;
+const partMarker = (index, id) => new URL('part-' + index + '-' + id, base).href;
 const requestedId = self.location.searchParams
   ? self.location.searchParams.get('v')
   : new URL(self.location.href).searchParams.get('v');
@@ -16,6 +19,34 @@ const requestedId = self.location.searchParams
 async function verifyBytes(bytes, expected) {
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
   return Array.from(digest, n => n.toString(16).padStart(2, '0')).join('') === expected;
+}
+
+async function verifiedPart(response, part) {
+  if (!response?.ok || !part || !Number.isSafeInteger(part.bytes) ||
+      !/^[a-f0-9]{64}$/.test(part.digest) || part.payload !== 'cartridge-' + part.digest + '.bin') return null;
+  const bytes = await response.arrayBuffer();
+  return bytes.byteLength === part.bytes && await verifyBytes(bytes, part.digest) ? bytes : null;
+}
+
+function binaryResponse(bytes) {
+  return new Response(bytes, {headers: {'Content-Type': 'application/octet-stream'}});
+}
+
+async function priorCartridges(cache, id) {
+  if (!(await cache.match(new URL('shell-' + id + '.html', base).href))) return null;
+  const client = await cache.match(new URL('launcher-' + id + '.js', base).href);
+  if (!client) return null;
+  const source = await client.text();
+  const data = source.match(/^\s*const release = ({.*});$/m)?.[1];
+  if (!data) return null;
+  try {
+    const config = JSON.parse(data);
+    if (config.id !== id || typeof config.payload !== 'string') return null;
+    const parts = Array.isArray(config.parts) ? config.parts : [];
+    const full = !source.includes('__arcadePart') || !!(await cache.match(fullMarker(id))) ||
+      !!(await cache.match(prefetchedMarker(id)));
+    return {core: config, parts, full};
+  } catch { return null; }
 }
 
 async function getStaticAsset(asset) {
@@ -80,9 +111,9 @@ async function installRelease() {
     if (requestedId && requestedId !== release.id) throw Error('The requested release is not at this origin yet');
     const cache = await caches.open(cacheName);
     let keepFull = false;
-    // Keep a prior complete offline installation usable across an update.
-    // Legacy releases held all modes in one verified cartridge. A split
-    // release carries a marker only after its launcher authenticated every part.
+    const keepParts = new Set();
+    // Match old cartridge URLs from the installed launcher. Releases before
+    // per-mode markers saved exactly the same verified bodies on first visit.
     for(const previous of (await caches.keys()).filter(name=>name.startsWith(prefix)&&name!==cacheName).reverse()){
       const old=await caches.open(previous);
       const previousId=previous.slice(prefix.length);
@@ -90,42 +121,56 @@ async function installRelease() {
       if (installed && installed.builtAt >= release.builtAt) {
         throw Error('A newer verified release already exists');
       }
-      const paths=(await old.keys()).map(request=>new URL(request.url).pathname.slice(base.pathname.length));
-      if(!paths.includes('shell-'+previousId+'.html'))continue;
-      if(paths.includes('full-'+previousId)||paths.includes('prefetched-'+previousId))keepFull=true;
-      else if(!keepFull){
-        const client=await old.match(new URL('launcher-'+previousId+'.js',base).href);
-        if(client&&paths.some(path=>path.startsWith('cartridge-')))keepFull=!(await client.text()).includes('__arcadePart');
+      if (keepFull) continue;
+      const prior = await priorCartridges(old, previousId);
+      if (!prior) continue;
+      const modeIndices = new Set();
+      for (const [index, part] of prior.parts.entries()) {
+        if (!release.parts[index] && !prior.full) continue;
+        if (keepParts.has(index) && !prior.full) continue;
+        const marker = await old.match(partMarker(index, previousId));
+        const proven = marker && await marker.text() === part?.digest;
+        const stored = part?.payload && await old.match(new URL(part.payload, base).href);
+        if (stored && ((!prior.full && proven) || await verifiedPart(stored, part))) {
+          modeIndices.add(index);
+          if (release.parts[index]) keepParts.add(index);
+        }
+      }
+      if (prior.full && modeIndices.size === prior.parts.length) {
+        const core = await old.match(new URL(prior.core.payload, base).href);
+        keepFull = !!(await verifiedPart(core, prior.core));
       }
     }
-    const required = keepFull ? [release, ...release.parts] : [release];
+    const parts = release.parts.filter((_, index) => keepFull || keepParts.has(index));
+    const required = [release, ...parts];
     const pending = [];
     // Finish every download before writing any of this install's large bodies.
     // A rejected install can leave WebKit's next worker with missing cache entries.
     for (const part of required) {
       const url = new URL(part.payload, base).href;
-      const stored = await cache.match(url);
-      if (stored && await verifyBytes(await stored.arrayBuffer(), part.digest)) continue;
-      const response = await fetch(url, {cache: 'no-store', credentials: 'omit', redirect: 'error', referrerPolicy:'no-referrer'});
-      if (!response.ok) throw new Error('Cartridge download failed');
-      const bytes = await response.arrayBuffer();
-      if (bytes.byteLength !== part.bytes || !(await verifyBytes(bytes, part.digest))) {
-        throw new Error('Cartridge verification failed');
-      }
+      if (await verifiedPart(await cache.match(url), part)) continue;
+      const stored = await caches.match(url);
+      const bytes = await verifiedPart(stored, part) || await verifiedPart(await fetch(url, {
+        cache: 'no-store', credentials: 'omit', redirect: 'error', referrerPolicy:'no-referrer'
+      }), part);
+      if (!bytes) throw new Error('Cartridge verification failed');
       pending.push({url, bytes});
     }
     const assets = await Promise.all(release.assets.map(getStaticAsset));
     for (const {url, bytes} of pending) {
-      await cache.put(url, new Response(bytes, {headers: {'Content-Type': 'application/octet-stream'}}));
+      await cache.put(url, binaryResponse(bytes));
     }
     await Promise.all(assets.map(([url, response]) => cache.put(url, response)));
     for (const part of required) {
       const stored = await cache.match(new URL(part.payload, base).href);
-      if (!stored || !(await verifyBytes(await stored.arrayBuffer(), part.digest))) {
+      if (!(await verifiedPart(stored, part))) {
         throw new Error('Offline installation incomplete');
       }
     }
-    if (keepFull) await cache.put(new URL('prefetched-' + release.id, base).href, new Response('1'));
+    for (const [index, part] of release.parts.entries()) {
+      if (keepFull || keepParts.has(index)) await cache.put(partMarker(index, release.id), new Response(part.digest));
+    }
+    if (keepFull) await cache.put(fullMarker(release.id), new Response('1'));
     await cache.put(builtMarker(release.id), new Response(JSON.stringify({id:release.id,builtAt:release.builtAt})));
     await self.skipWaiting();
 }
